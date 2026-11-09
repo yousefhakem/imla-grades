@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1f4e8c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="درجات الإملاء">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%231f4e8c'/%3E%3Ctext x='32' y='44' font-size='34' text-anchor='middle' fill='white' font-family='sans-serif'%3E10%3C/text%3E%3C/svg%3E">
+<title>حاسبة درجات الإملاء</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Readex+Pro:wght@400;500;700&family=Reem+Kufi:wght@600;700&display=swap">
+<style>
+html { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
+body { margin: 0; }
+/* Layout: one narrow column like a marking sheet — result on top, mistake counter, then the full lookup table */
+:root {
+  --paper: #f3f6fa;
+  --sheet: #ffffff;
+  --ink: #18263a;
+  --muted: #5f6f84;
+  --line: #d9e1eb;
+  --ink-blue: #1f4e8c;
+  --pen-red: #c2283b;
+  --tint: #e6eef8;
+  --display: "Reem Kufi", "Readex Pro", "Segoe UI", Tahoma, sans-serif;
+  --body: "Readex Pro", "Segoe UI", Tahoma, sans-serif;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1622; --sheet: #172233; --ink: #e8eef6; --muted: #9aaabf;
+    --line: #2a3a50; --ink-blue: #7fb0f0; --pen-red: #ff7a88; --tint: #1e2f47;
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1622; --sheet: #172233; --ink: #e8eef6; --muted: #9aaabf;
+  --line: #2a3a50; --ink-blue: #7fb0f0; --pen-red: #ff7a88; --tint: #1e2f47;
+  color-scheme: dark;
+}
+
+* { box-sizing: border-box; }
+body {
+  background: var(--paper);
+  color: var(--ink);
+  font-family: var(--body);
+  font-size: 16px;
+  line-height: 1.6;
+  -webkit-tap-highlight-color: transparent;
+}
+.wrap {
+  max-width: 480px;
+  margin: 0 auto;
+  padding-block: 20px 40px;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+h1 {
+  font-family: var(--display);
+  font-size: 1.6rem;
+  margin: 0;
+  text-wrap: balance;
+}
+.sub { margin: 0; color: var(--muted); font-size: 0.9rem; }
+.num { font-variant-numeric: tabular-nums; }
+
+/* allotted mark chips */
+.field-label { font-size: 0.85rem; color: var(--muted); margin-bottom: 6px; display: block; }
+.chips { display: flex; gap: 8px; flex-wrap: wrap; }
+.chip {
+  font: inherit;
+  font-weight: 500;
+  min-width: 52px;
+  padding: 8px 14px;
+  border-radius: 999px;
+  border: 1.5px solid var(--line);
+  background: var(--sheet);
+  color: var(--ink);
+  cursor: pointer;
+}
+.chip[aria-pressed="true"] { background: var(--ink-blue); border-color: var(--ink-blue); color: var(--sheet); }
+.chip-input {
+  font: inherit;
+  width: 84px;
+  padding: 8px 12px;
+  border-radius: 999px;
+  border: 1.5px dashed var(--line);
+  background: var(--sheet);
+  color: var(--ink);
+  text-align: center;
+}
+.chip-input.active { border-style: solid; border-color: var(--ink-blue); }
+
+/* result */
+.result {
+  background: var(--sheet);
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  padding: 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.score-row { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+.score-label { font-weight: 500; color: var(--muted); }
+.score {
+  font-family: var(--display);
+  font-size: 3.2rem;
+  line-height: 1;
+  color: var(--ink-blue);
+}
+.score small { font-size: 1.3rem; color: var(--muted); }
+.steps {
+  list-style: none;
+  margin: 0;
+  padding: 12px 0 0;
+  border-top: 1px dashed var(--line);
+  display: grid;
+  grid-template-columns: 1fr auto;
+  gap: 4px 12px;
+  font-size: 0.95rem;
+}
+.steps dt { color: var(--muted); }
+.steps dd { margin: 0; font-weight: 500; text-align: left; direction: ltr; }
+.steps .minus { color: var(--pen-red); }
+.round-note { color: var(--pen-red); font-size: 0.8rem; font-weight: 400; }
+
+/* counter */
+.counter {
+  display: grid;
+  grid-template-columns: 72px 1fr 72px;
+  align-items: center;
+  gap: 12px;
+}
+.step-btn {
+  font: inherit;
+  font-size: 2rem;
+  font-weight: 700;
+  height: 72px;
+  border-radius: 18px;
+  border: none;
+  cursor: pointer;
+  touch-action: manipulation;
+}
+.step-btn.add { background: var(--pen-red); color: var(--sheet); }
+.step-btn.sub { background: var(--tint); color: var(--ink); }
+.step-btn:active { transform: scale(0.96); }
+.count-box { text-align: center; }
+.count-box label { display: block; font-size: 0.85rem; color: var(--muted); }
+#mistakes {
+  font-family: var(--display);
+  font-size: 2.8rem;
+  width: 100%;
+  border: none;
+  background: transparent;
+  color: var(--ink);
+  text-align: center;
+  padding: 0;
+  -moz-appearance: textfield;
+}
+#mistakes::-webkit-outer-spin-button, #mistakes::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.reset {
+  font: inherit;
+  font-size: 0.9rem;
+  align-self: center;
+  background: none;
+  border: none;
+  color: var(--ink-blue);
+  text-decoration: underline;
+  cursor: pointer;
+  padding: 4px 8px;
+}
+
+/* table */
+h2 { font-size: 1.05rem; margin: 8px 0 0; }
+.table-wrap { overflow-x: auto; background: var(--sheet); border: 1px solid var(--line); border-radius: 14px; }
+table { width: 100%; border-collapse: collapse; font-size: 0.95rem; }
+th, td { padding: 9px 12px; text-align: center; }
+th { font-weight: 500; color: var(--muted); font-size: 0.8rem; border-bottom: 1px solid var(--line); }
+tbody tr { cursor: pointer; }
+tbody tr + tr td { border-top: 1px solid var(--line); }
+tbody tr.current td { background: var(--tint); font-weight: 700; }
+tbody tr.current td:last-child { color: var(--ink-blue); }
+.rule { font-size: 0.85rem; color: var(--muted); margin: 0; }
+
+button:focus-visible, input:focus-visible, tr:focus-visible { outline: 2px solid var(--ink-blue); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .step-btn:active { transform: none; } }
+</style>
+</head>
+<body>
+
+<main class="wrap" dir="rtl" lang="ar">
+  <header>
+    <h1>تقدير درجات الإملاء</h1>
+    <p class="sub">الفقرة من 10، ونصف درجة عن كل خطأ.</p>
+  </header>
+
+  <div>
+    <span class="field-label" id="allot-label">الدرجة المخصصة للإملاء</span>
+    <div class="chips" role="group" aria-labelledby="allot-label">
+      <button class="chip num" data-v="5">5</button>
+      <button class="chip num" data-v="10">10</button>
+      <button class="chip num" data-v="15">15</button>
+      <button class="chip num" data-v="20">20</button>
+      <input class="chip-input num" id="custom-allot" type="number" inputmode="decimal" min="0" step="0.5" placeholder="أخرى" aria-label="درجة مخصصة أخرى">
+    </div>
+  </div>
+
+  <section class="result" aria-live="polite">
+    <div class="score-row">
+      <span class="score-label">درجة الرصد</span>
+      <span class="score num"><span id="score">4.5</span> <small>/ <span id="allot-out">5</span></small></span>
+    </div>
+    <dl class="steps num">
+      <dt>الخصم</dt><dd class="minus" id="s-deduct">−1.5</dd>
+      <dt>درجة التصحيح</dt><dd id="s-correct">8.5 / 10</dd>
+      <dt>بعد جبر النصف <span class="round-note" id="s-round-note">(جُبر النصف)</span></dt><dd id="s-rounded">9</dd>
+      <dt>التحويل</dt><dd id="s-convert">9 × 5 ÷ 10</dd>
+    </dl>
+  </section>
+
+  <div class="counter">
+    <button class="step-btn sub" id="minus" aria-label="إنقاص خطأ">−</button>
+    <div class="count-box">
+      <label for="mistakes">عدد الأخطاء</label>
+      <input id="mistakes" class="num" type="number" inputmode="numeric" min="0" step="1" value="3">
+    </div>
+    <button class="step-btn add" id="plus" aria-label="إضافة خطأ">+</button>
+  </div>
+  <button class="reset" id="reset">طالب جديد (تصفير الأخطاء)</button>
+
+  <h2>جدول سريع</h2>
+  <p class="rule">اضغط على أي صف لاختياره.</p>
+  <div class="table-wrap">
+    <table>
+      <thead><tr><th>الأخطاء</th><th>درجة التصحيح</th><th>درجة الرصد</th></tr></thead>
+      <tbody id="tbody" class="num"></tbody>
+    </table>
+  </div>
+  <p class="rule">درجة الرصد = درجة التصحيح × الدرجة المخصصة ÷ 10، ويُجبر النصف إلى واحد صحيح قبل القسمة فقط.</p>
+</main>
+
+<script>
+(function () {
+  var FULL = 10, PER_MISTAKE = 0.5, MAX_ROWS = 20;
+  var allot = 5, mistakes = 3;
+
+  try {
+    var saved = parseFloat(localStorage.getItem("imla-allot"));
+    if (saved > 0) allot = saved;
+  } catch (e) {}
+
+  var $ = function (id) { return document.getElementById(id); };
+  var fmt = function (n) { return String(Math.round(n * 100) / 100); };
+
+  function grade(m) {
+    var correct = Math.max(0, FULL - m * PER_MISTAKE);
+    var rounded = Math.ceil(correct); // half rounds up to a whole mark
+    return { correct: correct, rounded: rounded, score: rounded * allot / FULL };
+  }
+
+  function renderTable() {
+    var rows = "";
+    for (var m = 0; m <= MAX_ROWS; m++) {
+      var g = grade(m);
+      rows += '<tr data-m="' + m + '" tabindex="0"><td>' + m + "</td><td>" + fmt(g.correct) + "</td><td>" + fmt(g.score) + "</td></tr>";
+    }
+    $("tbody").innerHTML = rows;
+  }
+
+  function render() {
+    var g = grade(mistakes);
+    $("score").textContent = fmt(g.score);
+    $("allot-out").textContent = fmt(allot);
+    $("s-deduct").textContent = "−" + fmt(Math.min(FULL, mistakes * PER_MISTAKE));
+    $("s-correct").textContent = fmt(g.correct) + " / " + FULL;
+    $("s-rounded").textContent = fmt(g.rounded);
+    $("s-round-note").hidden = g.rounded === g.correct;
+    $("s-convert").textContent = fmt(g.rounded) + " × " + fmt(allot) + " ÷ " + FULL;
+    if (document.activeElement !== $("mistakes")) $("mistakes").value = mistakes;
+
+    var preset = false;
+    document.querySelectorAll(".chip").forEach(function (b) {
+      var on = parseFloat(b.dataset.v) === allot;
+      if (on) preset = true;
+      b.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    $("custom-allot").classList.toggle("active", !preset);
+    if (!preset && document.activeElement !== $("custom-allot")) $("custom-allot").value = allot;
+    if (preset && document.activeElement !== $("custom-allot")) $("custom-allot").value = "";
+
+    document.querySelectorAll("#tbody tr").forEach(function (tr) {
+      tr.classList.toggle("current", +tr.dataset.m === mistakes);
+    });
+  }
+
+  function setMistakes(n) { mistakes = Math.max(0, Math.floor(n) || 0); render(); }
+  function setAllot(v) {
+    if (!(v > 0)) return;
+    allot = v;
+    try { localStorage.setItem("imla-allot", String(v)); } catch (e) {}
+    renderTable(); render();
+  }
+
+  $("plus").addEventListener("click", function () { setMistakes(mistakes + 1); });
+  $("minus").addEventListener("click", function () { setMistakes(mistakes - 1); });
+  $("reset").addEventListener("click", function () { setMistakes(0); });
+  $("mistakes").addEventListener("input", function (e) { setMistakes(parseInt(e.target.value, 10)); });
+  $("mistakes").addEventListener("blur", render);
+  document.querySelectorAll(".chip").forEach(function (b) {
+    b.addEventListener("click", function () { setAllot(parseFloat(b.dataset.v)); });
+  });
+  $("custom-allot").addEventListener("input", function (e) { setAllot(parseFloat(e.target.value)); });
+  $("custom-allot").addEventListener("blur", render);
+  $("tbody").addEventListener("click", function (e) {
+    var tr = e.target.closest("tr");
+    if (tr) { setMistakes(+tr.dataset.m); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  });
+  $("tbody").addEventListener("keydown", function (e) {
+    var tr = e.target.closest("tr");
+    if (tr && (e.key === "Enter" || e.key === " ")) { e.preventDefault(); setMistakes(+tr.dataset.m); }
+  });
+
+  renderTable();
+  render();
+})();
+</script>
+</body>
+</html>
